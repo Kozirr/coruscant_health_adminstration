@@ -49,5 +49,5 @@ REMAINING.md
 SESSION_NOTES.md
 
 # Django upload directories (local dev / tests)
-**/encrypted_docs/
-**/order_results/
+encrypted_docs/
+order_results/
