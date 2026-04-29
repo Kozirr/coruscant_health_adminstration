@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/backend"
+
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <firstname> <lastname>" >&2
+    exit 0
+fi
+
+python3 manage.py health_official "$1" "$2"

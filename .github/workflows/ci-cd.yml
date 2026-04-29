@@ -1,0 +1,86 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test_coruscant
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_coruscant
+      DJANGO_SECRET_KEY: ci-test-secret-key
+      DEBUG: "False"
+      ENCRYPTION_KEY: ci-encryption-key-must-be-32-bytes!!
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+      - name: Run migrations
+        run: |
+          cd backend
+          python manage.py migrate
+      - name: Run tests
+        run: |
+          cd backend
+          python manage.py test
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install
+      - name: Build
+        run: |
+          cd frontend
+          npm run build
+      - name: Copy build into backend static
+        run: |
+          mkdir -p backend/static/frontend
+          cp -r frontend/dist/* backend/static/frontend/
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: backend/static/frontend
+
+  # Uncomment the block below if you want GitHub Actions to explicitly trigger
+  # a Railway deploy hook instead of relying on Railway auto-deploy.
+  #
+  # deploy:
+  #   needs: [backend-tests, frontend-build]
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #     - name: Trigger Railway Deploy Hook
+  #       run: |
+  #         curl -X POST ${{ secrets.RAILWAY_DEPLOY_HOOK_URL }}
