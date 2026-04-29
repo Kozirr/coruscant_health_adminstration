@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./
 COPY --from=frontend-build /app/frontend/dist /app/backend/static/frontend
 
-RUN python manage.py collectstatic --noinput
+RUN DATABASE_URL="sqlite:////tmp/build.db" python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
