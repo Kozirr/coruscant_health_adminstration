@@ -1,6 +1,6 @@
 [deploy]
 startCommand = "sh -c 'python manage.py migrate && gunicorn coruscant_health.wsgi:application --bind 0.0.0.0:$PORT'"
-healthcheckPath = "/"
+healthcheckPath = "/health/"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
 numReplicas = 1
