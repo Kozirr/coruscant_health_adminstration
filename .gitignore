@@ -47,3 +47,7 @@ Thumbs.db
 DEPLOYMENT.md
 REMAINING.md
 SESSION_NOTES.md
+
+# Django upload directories (local dev / tests)
+**/encrypted_docs/
+**/order_results/
