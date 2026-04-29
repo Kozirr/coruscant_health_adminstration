@@ -17,6 +17,8 @@ const Login = () => {
     try {
       const res = await api.post('/auth/login/', form);
       const tokens = res.data;
+      localStorage.setItem('access_token', tokens.access);
+      localStorage.setItem('refresh_token', tokens.refresh);
       const profile = await api.get('/auth/profile/');
       login(tokens, profile.data);
       const roleRoutes = {
