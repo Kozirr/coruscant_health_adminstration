@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 load_dotenv()
 
@@ -75,20 +76,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'coruscant_health.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'coruscant_health'),
-        'USER': os.environ.get('DB_USER', 'ch_admin'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'ch_password'),
-        'HOST': os.environ.get('DB_HOST', 'db'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
-    }
-}
+if not os.environ.get('DATABASE_URL'):
+    raise ImproperlyConfigured(
+        'DATABASE_URL environment variable is required. '
+        'If running locally, ensure it is set in your .env or docker-compose.yml. '
+        'If deploying to Railway, add a PostgreSQL database to the same project '
+        'and verify DATABASE_URL is injected as a variable.'
+    )
 
-if os.environ.get('DATABASE_URL'):
-    import dj_database_url
-    DATABASES['default'] = dj_database_url.parse(os.environ.get('DATABASE_URL'))
+import dj_database_url
+DATABASES = {
+    'default': dj_database_url.parse(os.environ.get('DATABASE_URL'))
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
