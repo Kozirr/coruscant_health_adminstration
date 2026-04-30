@@ -71,3 +71,19 @@ class OrderExecuteTests(TestCase):
         self.assertEqual(res.status_code, 200)
         results = res.data.get('results', res.data)
         self.assertEqual(len(results), 1)
+
+    def test_patient_cannot_execute_order(self):
+        self.client.force_authenticate(user=self.patient_user)
+        res = self.client.patch(
+            f'/api/v1/orders/{self.order.id}/execute/',
+            {'status': 'COMPLETED'},
+        )
+        self.assertEqual(res.status_code, 403)
+
+    def test_patient_cannot_update_order_directly(self):
+        self.client.force_authenticate(user=self.patient_user)
+        res = self.client.patch(
+            f'/api/v1/orders/{self.order.id}/',
+            {'status': 'COMPLETED'},
+        )
+        self.assertEqual(res.status_code, 403)

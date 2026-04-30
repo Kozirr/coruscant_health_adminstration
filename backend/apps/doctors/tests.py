@@ -52,3 +52,31 @@ class PrescriptionAPITests(TestCase):
             'content': 'Take two pills',
         })
         self.assertEqual(res.status_code, 403)
+
+    def test_patient_can_read_own_prescriptions(self):
+        Prescription.objects.create(
+            patient=self.patient,
+            doctor=self.doctor,
+            title='Rx',
+            content='Hydrate and rest',
+        )
+        self.client.force_authenticate(user=self.patient_user)
+        res = self.client.get(f'/api/v1/doctors/prescriptions/?patient={self.patient.id}')
+        self.assertEqual(res.status_code, 200)
+        results = res.data.get('results', res.data)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['title'], 'Rx')
+
+    def test_patient_cannot_update_own_prescription(self):
+        prescription = Prescription.objects.create(
+            patient=self.patient,
+            doctor=self.doctor,
+            title='Rx',
+            content='Hydrate and rest',
+        )
+        self.client.force_authenticate(user=self.patient_user)
+        res = self.client.patch(
+            f'/api/v1/doctors/prescriptions/{prescription.id}/',
+            {'content': 'Changed by patient'},
+        )
+        self.assertEqual(res.status_code, 403)

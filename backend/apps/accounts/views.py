@@ -34,6 +34,12 @@ class UserApproveView(APIView):
         user = get_object_or_404(User, pk=pk)
         user.is_approved = True
         user.save()
+        if user.role == 'PATIENT':
+            from apps.patients.models import PatientProfile
+            PatientProfile.objects.get_or_create(user=user)
+        elif user.role == 'DOCTOR':
+            from apps.doctors.models import DoctorProfile
+            DoctorProfile.objects.get_or_create(user=user)
         return Response({'message': f'User {user.username} approved.'})
 
 

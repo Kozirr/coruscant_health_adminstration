@@ -5,7 +5,7 @@
 Rebuild the Medical Management System for the Coruscant Health Administration (CHA), an organization within the Galactic Republic responsible for the health care of Coruscant's citizens. The challenge is to create a secure, role-based platform that manages patients, doctors, departments, emergency services, and encrypted medical documents while ensuring top UI/UX and automated deployment.
 
 ## Description
-We solved the problem by building a modern full-stack application using Django REST Framework on the backend and React on the frontend. The system supports five stakeholder roles (Patient, Doctor, Administrator, Emergency Services, and Department) with dedicated dashboards and workflows. Patient health data is ingested via simulated device CSV uploads. Doctors can monitor trends, write prescriptions, and order services. Departments receive and execute orders. Emergency Services can input patients in seconds. All uploaded documents are encrypted with AES-256 before storage on AWS S3. The application is containerized with Docker for local development and deploys automatically to Railway via GitHub Actions CI/CD.
+We solved the problem by building a modern full-stack application using Django REST Framework on the backend and React on the frontend. The system supports five stakeholder roles (Patient, Doctor, Administrator, Emergency Services, and Department) with dedicated dashboards and workflows. Patient health data is ingested via simulated device CSV uploads. Doctors can monitor trends, write prescriptions, and order services. Departments receive and execute orders. Emergency Services can input patients in seconds. All uploaded medical documents are encrypted with AES-256-GCM before storage in S3-compatible object storage. The application is containerized with Docker for local development and deploys automatically to Railway via GitHub Actions CI/CD.
 
 ## Installation
 ```bash
@@ -20,6 +20,7 @@ cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+export DATABASE_URL=sqlite:///db.sqlite3
 python manage.py migrate
 python manage.py runserver
 
@@ -38,6 +39,8 @@ npm run dev
 cd backend
 python manage.py health_official John Doe
 ```
+
+Public registration is limited to patients and doctors. Administrator, emergency services, and department accounts should be created by an administrator.
 
 ### The Core Team
 

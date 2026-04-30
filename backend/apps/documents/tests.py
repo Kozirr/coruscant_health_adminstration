@@ -21,6 +21,7 @@ class DocumentAPITests(TestCase):
         self.client = APIClient()
         self.patient = User.objects.create_user(username='pat1', password='pass', role='PATIENT', is_approved=True)
         self.other = User.objects.create_user(username='other1', password='pass', role='PATIENT', is_approved=True)
+        self.doctor = User.objects.create_user(username='doc1', password='pass', role='DOCTOR', is_approved=True)
 
     def test_patient_can_upload_document(self):
         self.client.force_authenticate(user=self.patient)
@@ -32,6 +33,44 @@ class DocumentAPITests(TestCase):
             res = self.client.post('/api/v1/documents/', {'file': f, 'document_type': 'MEDICAL_RECORD'}, format='multipart')
         self.assertEqual(res.status_code, 201)
         self.assertEqual(Document.objects.filter(uploaded_by=self.patient).count(), 1)
+        self.assertNotIn('file', res.data)
+        self.assertIn('download_url', res.data)
+
+    def test_uploaded_document_is_stored_encrypted(self):
+        self.client.force_authenticate(user=self.patient)
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        plaintext = b'plain health record'
+        upload = SimpleUploadedFile('record.txt', plaintext, content_type='text/plain')
+        res = self.client.post(
+            '/api/v1/documents/',
+            {'file': upload, 'document_type': 'MEDICAL_RECORD'},
+            format='multipart',
+        )
+        self.assertEqual(res.status_code, 201)
+        doc = Document.objects.get(uploaded_by=self.patient)
+        with doc.file.open('rb') as f:
+            stored = f.read()
+        self.assertNotEqual(stored, plaintext)
+        self.assertEqual(decrypt_file(stored, doc.encryption_iv), plaintext)
+
+    def test_doctor_can_upload_list_and_download_document(self):
+        self.client.force_authenticate(user=self.doctor)
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        upload = SimpleUploadedFile('doctor-note.txt', b'doctor note', content_type='text/plain')
+        upload_res = self.client.post(
+            '/api/v1/documents/',
+            {'file': upload, 'document_type': 'MEDICAL_RECORD'},
+            format='multipart',
+        )
+        self.assertEqual(upload_res.status_code, 201)
+        list_res = self.client.get('/api/v1/documents/')
+        self.assertEqual(list_res.status_code, 200)
+        results = list_res.data.get('results', list_res.data)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['original_filename'], 'doctor-note.txt')
+        download_res = self.client.get(f"/api/v1/documents/{results[0]['id']}/download/")
+        self.assertEqual(download_res.status_code, 200)
+        self.assertEqual(download_res.content, b'doctor note')
 
     def test_download_decrypts_correctly(self):
         from django.core.files.base import ContentFile

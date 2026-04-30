@@ -9,4 +9,6 @@ if [ $# -ne 2 ]; then
     exit 0
 fi
 
+export DATABASE_URL="${DATABASE_URL:-sqlite:///$SCRIPT_DIR/backend/db.sqlite3}"
+export DJANGO_SECRET_KEY="${DJANGO_SECRET_KEY:-local-cli-secret-key}"
 python3 manage.py health_official "$1" "$2"

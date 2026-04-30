@@ -62,9 +62,6 @@ const Register = () => {
           <select name="role" value={form.role} onChange={handleChange} className="w-full border rounded px-3 py-2">
             <option value="PATIENT">Patient</option>
             <option value="DOCTOR">Doctor</option>
-            <option value="ADMIN">Administrator</option>
-            <option value="EMERGENCY">Emergency Services</option>
-            <option value="DEPARTMENT">Department</option>
           </select>
         </div>
         <div className="mb-4">

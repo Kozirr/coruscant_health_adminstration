@@ -8,6 +8,7 @@ const PatientDashboard = () => {
   const [profile, setProfile] = useState(null);
   const [readings, setReadings] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [file, setFile] = useState(null);
   const [docFile, setDocFile] = useState(null);
   const [message, setMessage] = useState('');
@@ -19,7 +20,8 @@ const PatientDashboard = () => {
   const fetchData = async () => {
     try {
       const profiles = await api.get('/patients/');
-      const myProfile = profiles.data.results?.[0];
+      const profileResults = profiles.data.results || profiles.data;
+      const myProfile = profileResults[0];
       if (!myProfile) return;
       setProfile(myProfile);
 
@@ -28,8 +30,27 @@ const PatientDashboard = () => {
 
       const p = await api.get(`/doctors/prescriptions/?patient=${myProfile.id}`);
       setPrescriptions(p.data.results || p.data);
+
+      const d = await api.get('/documents/');
+      setDocuments(d.data.results || d.data);
     } catch {
       // ignore
+    }
+  };
+
+  const downloadDocument = async (doc) => {
+    try {
+      const res = await api.get(`/documents/${doc.id}/download/`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', doc.original_filename || 'document');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      setMessage('Document download failed.');
     }
   };
 
@@ -62,18 +83,21 @@ const PatientDashboard = () => {
       });
       setMessage('Document uploaded securely.');
       setDocFile(null);
+      fetchData();
     } catch {
       setMessage('Document upload failed.');
     }
   };
 
-  const chartData = readings.map((r) => ({
+  const sortedReadings = [...readings].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  const chartData = sortedReadings.map((r) => ({
     name: new Date(r.timestamp).toLocaleDateString(),
     heart_rate: r.heart_rate,
     sys: r.blood_pressure_sys,
     dia: r.blood_pressure_dia,
     temp: r.temperature,
-  })).reverse();
+  }));
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -128,6 +152,33 @@ const PatientDashboard = () => {
                 <div className="font-medium">{p.title}</div>
                 <div className="text-sm text-gray-600">Dr. {p.doctor_name}</div>
                 <div className="text-sm text-gray-700 mt-1">{p.content}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="bg-white p-4 rounded shadow mb-6">
+        <h2 className="font-semibold mb-2">Documents</h2>
+        {documents.length === 0 ? (
+          <p className="text-gray-500">No documents uploaded yet.</p>
+        ) : (
+          <ul className="divide-y">
+            {documents.map((doc) => (
+              <li key={doc.id} className="py-2 flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-medium">{doc.original_filename}</div>
+                  <div className="text-xs text-gray-500">
+                    {doc.document_type.replace('_', ' ')} - {new Date(doc.uploaded_at).toLocaleDateString()}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => downloadDocument(doc)}
+                  className="text-indigo-600 hover:underline text-sm"
+                >
+                  Download
+                </button>
               </li>
             ))}
           </ul>

@@ -38,5 +38,7 @@ class EmergencyConvertTests(TestCase):
         res = self.client.post(f'/api/v1/emergency/{ep.id}/convert/')
         self.assertEqual(res.status_code, 201)
         self.assertTrue(User.objects.filter(username__startswith='leia_organa').exists() or User.objects.filter(first_name='Leia').exists())
+        patient_user = User.objects.get(first_name='Leia', last_name='Organa')
+        self.assertFalse(patient_user.has_usable_password())
         ep.refresh_from_db()
         self.assertTrue(ep.converted_to_patient)

@@ -48,3 +48,14 @@ class CSVUploadTests(TestCase):
             res = self.client.post(f'/api/v1/patients/{self.profile.id}/readings/upload/', {'file': f}, format='multipart')
         self.assertEqual(res.status_code, 201)
         self.assertEqual(HealthReading.objects.filter(patient=self.profile).count(), 2)
+
+    def test_patient_cannot_upload_readings_for_another_patient(self):
+        other_user = User.objects.create_user(username='pat2', password='pass', role='PATIENT', is_approved=True)
+        other_profile = PatientProfile.objects.create(user=other_user)
+        import tempfile
+        temp = tempfile.NamedTemporaryFile(suffix='.csv', delete=False, mode='w')
+        temp.write("heart_rate\n70\n")
+        temp.close()
+        with open(temp.name, 'rb') as f:
+            res = self.client.post(f'/api/v1/patients/{other_profile.id}/readings/upload/', {'file': f}, format='multipart')
+        self.assertEqual(res.status_code, 403)

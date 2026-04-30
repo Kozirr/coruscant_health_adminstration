@@ -17,10 +17,12 @@ const DoctorDashboard = () => {
   const [message, setMessage] = useState('');
   const [docFile, setDocFile] = useState(null);
   const [docType, setDocType] = useState('MEDICAL_RECORD');
+  const [documents, setDocuments] = useState([]);
 
   useEffect(() => {
     fetchPatients();
     fetchDepartments();
+    fetchDocuments();
   }, []);
 
   const fetchPatients = async () => {
@@ -37,6 +39,29 @@ const DoctorDashboard = () => {
       if (res.data.results?.length) setSelectedDept(res.data.results[0].id);
       else if (res.data.length) setSelectedDept(res.data[0].id);
     } catch {}
+  };
+
+  const fetchDocuments = async () => {
+    try {
+      const res = await api.get('/documents/');
+      setDocuments(res.data.results || res.data);
+    } catch {}
+  };
+
+  const downloadDocument = async (doc) => {
+    try {
+      const res = await api.get(`/documents/${doc.id}/download/`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', doc.original_filename || 'document');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      setMessage('Document download failed.');
+    }
   };
 
   const selectPatient = async (p) => {
@@ -95,18 +120,21 @@ const DoctorDashboard = () => {
       });
       setMessage('Document uploaded securely.');
       setDocFile(null);
+      fetchDocuments();
     } catch {
       setMessage('Document upload failed.');
     }
   };
 
-  const chartData = readings.map((r) => ({
+  const sortedReadings = [...readings].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  const chartData = sortedReadings.map((r) => ({
     name: new Date(r.timestamp).toLocaleDateString(),
     heart_rate: r.heart_rate,
     sys: r.blood_pressure_sys,
     dia: r.blood_pressure_dia,
     temp: r.temperature,
-  })).reverse();
+  }));
 
   const computeTrend = (values) => {
     if (values.length < 3) return null;
@@ -136,9 +164,9 @@ const DoctorDashboard = () => {
     );
   };
 
-  const hrTrend = computeTrend(readings.map((r) => r.heart_rate).filter(Boolean));
-  const sysTrend = computeTrend(readings.map((r) => r.blood_pressure_sys).filter(Boolean));
-  const diaTrend = computeTrend(readings.map((r) => r.blood_pressure_dia).filter(Boolean));
+  const hrTrend = computeTrend(sortedReadings.map((r) => r.heart_rate).filter(Boolean));
+  const sysTrend = computeTrend(sortedReadings.map((r) => r.blood_pressure_sys).filter(Boolean));
+  const diaTrend = computeTrend(sortedReadings.map((r) => r.blood_pressure_dia).filter(Boolean));
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -230,23 +258,52 @@ const DoctorDashboard = () => {
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded shadow max-w-xl">
-        <h2 className="font-semibold mb-2">Upload Document</h2>
-        <form onSubmit={handleDocUpload} className="flex flex-col sm:flex-row items-start sm:items-end gap-2">
-          <select
-            className="border rounded px-2 py-1 text-sm"
-            value={docType}
-            onChange={(e) => setDocType(e.target.value)}
-          >
-            <option value="MEDICAL_RECORD">Medical Record</option>
-            <option value="PRESCRIPTION">Prescription</option>
-            <option value="RESULT">Result</option>
-            <option value="IDENTITY">Identity</option>
-            <option value="OTHER">Other</option>
-          </select>
-          <input type="file" onChange={(e) => setDocFile(e.target.files[0])} />
-          <button className="bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700">Upload</button>
-        </form>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="font-semibold mb-2">Upload Document</h2>
+          <form onSubmit={handleDocUpload} className="flex flex-col sm:flex-row items-start sm:items-end gap-2">
+            <select
+              className="border rounded px-2 py-1 text-sm"
+              value={docType}
+              onChange={(e) => setDocType(e.target.value)}
+            >
+              <option value="MEDICAL_RECORD">Medical Record</option>
+              <option value="PRESCRIPTION">Prescription</option>
+              <option value="RESULT">Result</option>
+              <option value="IDENTITY">Identity</option>
+              <option value="OTHER">Other</option>
+            </select>
+            <input type="file" onChange={(e) => setDocFile(e.target.files[0])} />
+            <button className="bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700">Upload</button>
+          </form>
+        </div>
+
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="font-semibold mb-2">Documents</h2>
+          {documents.length === 0 ? (
+            <p className="text-gray-500">No documents uploaded yet.</p>
+          ) : (
+            <ul className="divide-y max-h-72 overflow-auto">
+              {documents.map((doc) => (
+                <li key={doc.id} className="py-2 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-medium">{doc.original_filename}</div>
+                    <div className="text-xs text-gray-500">
+                      {doc.document_type.replace('_', ' ')} - {doc.uploaded_by_name} - {new Date(doc.uploaded_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => downloadDocument(doc)}
+                    className="text-indigo-600 hover:underline text-sm"
+                  >
+                    Download
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
-import os
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions, status
+from django.core.files.base import ContentFile
+from rest_framework import generics, permissions, serializers, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -15,32 +16,28 @@ class DocumentListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        qs = Document.objects.all()
-        if self.request.user.role == 'PATIENT':
-            qs = qs.filter(uploaded_by=self.request.user)
-        return qs
+        user = self.request.user
+        if user.role in ('ADMIN', 'DOCTOR'):
+            return Document.objects.all()
+        if user.role == 'PATIENT':
+            return Document.objects.filter(uploaded_by=user)
+        return Document.objects.none()
 
     def perform_create(self, serializer):
+        if self.request.user.role not in ('PATIENT', 'DOCTOR'):
+            raise PermissionDenied('Only patients and doctors can upload medical documents.')
         file_obj = self.request.FILES.get('file')
         if not file_obj:
             raise serializers.ValidationError({'file': 'This field is required.'})
         file_bytes = file_obj.read()
         ciphertext, iv = encrypt_file(file_bytes)
 
-        import tempfile
-        from django.core.files.base import File
-        temp = tempfile.NamedTemporaryFile(delete=False)
-        temp.write(ciphertext)
-        temp.close()
-
         document = serializer.save(
             uploaded_by=self.request.user,
             original_filename=file_obj.name,
             encryption_iv=iv,
         )
-        with open(temp.name, 'rb') as f:
-            document.file.save(file_obj.name, File(f), save=True)
-        os.unlink(temp.name)
+        document.file.save(file_obj.name, ContentFile(ciphertext), save=True)
 
 
 class DocumentDownloadView(APIView):
@@ -49,6 +46,8 @@ class DocumentDownloadView(APIView):
     def get(self, request, pk):
         doc = get_object_or_404(Document, pk=pk)
         if request.user.role == 'PATIENT' and doc.uploaded_by != request.user:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if request.user.role not in ('ADMIN', 'DOCTOR', 'PATIENT'):
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         with doc.file.open('rb') as f:

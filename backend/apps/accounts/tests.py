@@ -3,6 +3,8 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from rest_framework.test import APIClient
+from apps.doctors.models import DoctorProfile
+from apps.patients.models import PatientProfile
 
 User = get_user_model()
 
@@ -56,8 +58,24 @@ class ApprovalWorkflowTests(TestCase):
         })
         self.assertEqual(res.status_code, 201)
         self.assertFalse(res.data['user']['is_approved'])
+        user = User.objects.get(username='patient1')
+        self.assertTrue(PatientProfile.objects.filter(user=user).exists())
 
-    def test_register_admin_is_approved(self):
+    def test_register_doctor_sets_pending_and_creates_profile(self):
+        res = self.client.post('/api/v1/auth/register/', {
+            'username': 'doctor1',
+            'password': 'testpass123',
+            'email': 'd@example.com',
+            'first_name': 'Doc',
+            'last_name': 'One',
+            'role': 'DOCTOR',
+        })
+        self.assertEqual(res.status_code, 201)
+        self.assertFalse(res.data['user']['is_approved'])
+        user = User.objects.get(username='doctor1')
+        self.assertTrue(DoctorProfile.objects.filter(user=user).exists())
+
+    def test_public_registration_rejects_admin_role(self):
         res = self.client.post('/api/v1/auth/register/', {
             'username': 'admin2',
             'password': 'testpass123',
@@ -66,8 +84,8 @@ class ApprovalWorkflowTests(TestCase):
             'last_name': 'Min',
             'role': 'ADMIN',
         })
-        self.assertEqual(res.status_code, 201)
-        self.assertTrue(res.data['user']['is_approved'])
+        self.assertEqual(res.status_code, 400)
+        self.assertFalse(User.objects.filter(username='admin2').exists())
 
     def test_unapproved_patient_cannot_login(self):
         User.objects.create_user(username='unapproved', password='pass', role='PATIENT', is_approved=False)

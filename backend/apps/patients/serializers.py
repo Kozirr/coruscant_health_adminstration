@@ -6,7 +6,7 @@ class HealthReadingSerializer(serializers.ModelSerializer):
     class Meta:
         model = HealthReading
         fields = '__all__'
-        read_only_fields = ('id', 'timestamp')
+        read_only_fields = ('id', 'patient', 'timestamp')
 
 
 class PatientProfileSerializer(serializers.ModelSerializer):
